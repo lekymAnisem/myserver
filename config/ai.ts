@@ -56,30 +56,24 @@ export async function editImage(prompt: string, imageDataUrl: string): Promise<s
   return generateImage(prompt);
 }
 
+async function resolveImageBuffer(imageUrl: string): Promise<Buffer> {
+  if (imageUrl.startsWith("data:")) {
+    const parts = imageUrl.split(",");
+    return Buffer.from(parts[1] || parts[0], "base64");
+  }
+  const res = await fetch(imageUrl);
+  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 export async function generateVideo(prompt: string, imageDataUrl?: string): Promise<string> {
+  let imageBuf: Buffer;
   if (!imageDataUrl) {
     const image = await generateImage(prompt);
-    const parts = image.split(",");
-    const imageBuf = Buffer.from(parts[1] || parts[0], "base64");
-    const res = await fetch(
-      "https://router.huggingface.co/hf-inference/models/stabilityai/stable-video-diffusion-img2vid",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${HF_TOKEN}`,
-          "Content-Type": "application/octet-stream",
-        },
-        body: imageBuf,
-      }
-    );
-    if (!res.ok) {
-      throw new Error(`HuggingFace API error ${res.status}: ${await res.text()}`);
-    }
-    const outBuf = Buffer.from(await res.arrayBuffer());
-    return `data:video/mp4;base64,${outBuf.toString("base64")}`;
+    imageBuf = await resolveImageBuffer(image);
+  } else {
+    imageBuf = await resolveImageBuffer(imageDataUrl);
   }
-  const parts = imageDataUrl.split(",");
-  const imageBuf = Buffer.from(parts[1] || parts[0], "base64");
   const res = await fetch(
     "https://router.huggingface.co/hf-inference/models/stabilityai/stable-video-diffusion-img2vid",
     {

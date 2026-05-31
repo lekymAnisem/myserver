@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { getAuth } from "@clerk/express";
 import { prisma } from "../config/prisma.js";
-import { uploadImages } from "../config/cloudinary.js";
+import { uploadImages, uploadImage } from "../config/cloudinary.js";
 import { generateImage, generateVideo } from "../config/ai.js";
 
 const CREDIT_COST = 5;
@@ -70,9 +70,10 @@ export const createProject = async (req: Request, res: Response) => {
           ? `Product: ${productName}${productDescription ? ` - ${productDescription}` : ""}. ${userPrompt}. Professional product photography, cinematic lighting, high quality, 4K`
           : userPrompt;
         const imageDataUrl = await generateImage(combinedPrompt);
+        const cloudinaryUrl = await uploadImage(imageDataUrl);
         await prisma.project.update({
           where: { id: project.id },
-          data: { generatedImage: imageDataUrl, isGenerating: false },
+          data: { generatedImage: cloudinaryUrl, isGenerating: false },
         });
       } catch (genErr) {
         console.error("Image generation failed:", genErr);
@@ -127,10 +128,11 @@ export const generateVideoFromImage = async (req: Request, res: Response) => {
     });
 
     try {
-      const videoUrl = await generateVideo(project.userPrompt || project.name, project.generatedImage);
+      const videoDataUrl = await generateVideo(project.userPrompt || project.name, project.generatedImage);
+      const cloudinaryVideoUrl = await uploadImage(videoDataUrl);
       const updated = await prisma.project.update({
         where: { id },
-        data: { generatedVideo: videoUrl, isGenerating: false },
+        data: { generatedVideo: cloudinaryVideoUrl, isGenerating: false },
       });
       await deductCredits(userId);
       res.json(updated);

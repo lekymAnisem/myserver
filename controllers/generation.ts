@@ -89,7 +89,8 @@ export const createVideoGeneration = async (req: Request, res: Response) => {
       return res.status(403).json({ message: creditCheck.reason });
     }
 
-    const videoUri = await generateVideo(prompt, image || undefined);
+    const videoDataUrl = await generateVideo(prompt, image || undefined);
+    const cloudinaryVideoUrl = await uploadImage(videoDataUrl);
 
     const project = await prisma.project.create({
       data: {
@@ -100,13 +101,13 @@ export const createVideoGeneration = async (req: Request, res: Response) => {
         userPrompt: prompt,
         aspectRatio: "9:16",
         targetLength: 5,
-        generatedVideo: videoUri,
+        generatedVideo: cloudinaryVideoUrl,
       },
     });
 
     await deductCredits(userId);
 
-    res.json({ project, videoUrl: videoUri, message: "Video generated successfully" });
+    res.json({ project, videoUrl: cloudinaryVideoUrl, message: "Video generated successfully" });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
