@@ -4,6 +4,7 @@ import {
   getMe,
   getUserCredits,
   syncPlan,
+  claimPlan,
   toggleProjectPublic,
 } from "../controllers/userController.js";
 
@@ -12,6 +13,7 @@ const router = Router();
 router.get("/me", protect, getMe);
 router.get("/credits", protect, getUserCredits);
 router.post("/me/sync-plan", protect, syncPlan);
+router.post("/me/claim-plan", protect, claimPlan);
 router.patch("/projects/:id/publish", protect, toggleProjectPublic);
 
 export default router;

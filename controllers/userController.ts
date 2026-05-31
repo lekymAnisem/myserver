@@ -157,6 +157,30 @@ export const syncPlan = async (req: Request, res: Response) => {
   }
 };
 
+export const claimPlan = async (req: Request, res: Response) => {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { plan } = req.body as { plan: string };
+    if (plan !== "pro" && plan !== "ultra") {
+      return res.status(400).json({ message: "Invalid plan" });
+    }
+
+    const credits = CREDITS_BY_PLAN[plan] || 20;
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { plan, credits },
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const toggleProjectPublic = async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req);
