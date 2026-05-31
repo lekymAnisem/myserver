@@ -4,11 +4,18 @@ import { prisma } from "../config/prisma.js";
 
 export const clerkWebhook = async (req: Request, res: Response) => {
     try {
-        console.log("[clerkWebhook] Received webhook, method:", req.method, "content-type:", req.headers["content-type"]);
-        console.log("[clerkWebhook] svix-signature present:", !!req.headers["svix-signature"]);
-        console.log("[clerkWebhook] CLERK_WEBHOOK_SIGNING_SECRET set:", !!process.env.CLERK_WEBHOOK_SIGNING_SECRET);
+        const signingSecret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+        if (!signingSecret) {
+            console.warn("[clerkWebhook] ⚠️ No CLERK_WEBHOOK_SIGNING_SECRET set — accepting events without verification (dev mode)");
+        }
 
-        const evt: any = await verifyWebhook(req);
+        let evt: any;
+        if (signingSecret) {
+            evt = await verifyWebhook(req);
+        } else {
+            const raw = Buffer.isBuffer(req.body) ? req.body.toString('utf-8') : JSON.stringify(req.body);
+            evt = JSON.parse(raw);
+        }
         const { data, type } = evt;
 
         switch (type) {
