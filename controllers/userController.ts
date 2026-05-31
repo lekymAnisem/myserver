@@ -140,9 +140,10 @@ export const syncPlan = async (req: Request, res: Response) => {
       if (metaPlan === "pro" || metaPlan === "ultra") plan = metaPlan;
     }
 
-    // 3) Allow manual override via request body
-    const bodyPlan = req.body?.plan as string | undefined;
-    if (bodyPlan === "pro" || bodyPlan === "ultra") plan = bodyPlan;
+    // Only grant credits if a paid plan was verified via Clerk's API/metadata
+    if (plan === "free") {
+      return res.status(400).json({ message: "No active paid subscription found" });
+    }
 
     const credits = CREDITS_BY_PLAN[plan] || 20;
     const updated = await prisma.user.update({
