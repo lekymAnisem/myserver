@@ -104,10 +104,38 @@ export const syncPlan = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const plan = (clerkUser.publicMetadata?.plan as string) || "free";
-    const credits = CREDITS_BY_PLAN[plan] || 20;
+    const CLERK_SECRET = process.env.CLERK_SECRET_KEY;
+    if (!CLERK_SECRET) {
+      return res.status(500).json({ message: "CLERK_SECRET_KEY not configured" });
+    }
 
+    // Fetch user's subscriptions from Clerk Billing API
+    const subRes = await fetch(
+      `https://api.clerk.com/v1/billing/subscriptions?user_id=${userId}&status=active`,
+      { headers: { Authorization: `Bearer ${CLERK_SECRET}` } }
+    );
+
+    let plan = "free";
+
+    if (subRes.ok) {
+      const subscriptions = await subRes.json();
+      const active = Array.isArray(subscriptions)
+        ? subscriptions.find((s: any) => s.status === "active")
+        : null;
+      if (active) {
+        const slug = active.plan?.slug || active.items?.[0]?.plan?.slug;
+        if (slug === "pro" || slug === "ultra") plan = slug;
+      }
+    }
+
+    // Fallback: check public metadata if Billing API returned nothing
+    if (plan === "free") {
+      const clerkUser = await clerkClient.users.getUser(userId);
+      const metaPlan = clerkUser.publicMetadata?.plan as string;
+      if (metaPlan === "pro" || metaPlan === "ultra") plan = metaPlan;
+    }
+
+    const credits = CREDITS_BY_PLAN[plan] || 20;
     const updated = await prisma.user.update({
       where: { id: userId },
       data: { plan, credits },
