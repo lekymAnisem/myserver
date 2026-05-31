@@ -104,36 +104,45 @@ export const syncPlan = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const CLERK_SECRET = process.env.CLERK_SECRET_KEY;
-    if (!CLERK_SECRET) {
-      return res.status(500).json({ message: "CLERK_SECRET_KEY not configured" });
-    }
-
-    // Fetch user's subscriptions from Clerk Billing API
-    const subRes = await fetch(
-      `https://api.clerk.com/v1/billing/subscriptions?user_id=${userId}&status=active`,
-      { headers: { Authorization: `Bearer ${CLERK_SECRET}` } }
-    );
-
     let plan = "free";
 
-    if (subRes.ok) {
-      const subscriptions = await subRes.json();
-      const active = Array.isArray(subscriptions)
-        ? subscriptions.find((s: any) => s.status === "active")
-        : null;
-      if (active) {
-        const slug = active.plan?.slug || active.items?.[0]?.plan?.slug;
-        if (slug === "pro" || slug === "ultra") plan = slug;
+    // 1) Try Clerk Billing API
+    const CLERK_SECRET = process.env.CLERK_SECRET_KEY;
+    if (CLERK_SECRET) {
+      try {
+        const subRes = await fetch(
+          `https://api.clerk.com/v1/billing/subscriptions?user_id=${userId}&status=active`,
+          { headers: { Authorization: `Bearer ${CLERK_SECRET}` } }
+        );
+        if (subRes.ok) {
+          const subscriptions = await subRes.json();
+          const active = Array.isArray(subscriptions)
+            ? subscriptions.find((s: any) => s.status === "active")
+            : null;
+          if (active) {
+            const slug = active.plan?.slug || active.items?.[0]?.plan?.slug;
+            if (slug === "pro" || slug === "ultra") plan = slug;
+          }
+        }
+      } catch {
+        // Billing API unavailable — fall through
       }
     }
 
-    // Fallback: check public metadata if Billing API returned nothing
+    // 2) Fallback: check all Clerk user metadata
     if (plan === "free") {
       const clerkUser = await clerkClient.users.getUser(userId);
-      const metaPlan = clerkUser.publicMetadata?.plan as string;
+      const raw = clerkUser as any;
+      const metaPlan =
+        (raw.publicMetadata?.plan as string) ||
+        (raw.privateMetadata?.plan as string) ||
+        (raw.unsafeMetadata?.plan as string);
       if (metaPlan === "pro" || metaPlan === "ultra") plan = metaPlan;
     }
+
+    // 3) Allow manual override via request body
+    const bodyPlan = req.body?.plan as string | undefined;
+    if (bodyPlan === "pro" || bodyPlan === "ultra") plan = bodyPlan;
 
     const credits = CREDITS_BY_PLAN[plan] || 20;
     const updated = await prisma.user.update({
