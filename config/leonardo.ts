@@ -152,8 +152,10 @@ export async function generateVideoFromPrompt(prompt: string): Promise<string> {
       prompt,
       model: "MOTION2",
       resolution: "RESOLUTION_720",
+      frameInterpolation: true,
     }),
   });
+  console.log("[Leonardo] text-to-video response:", JSON.stringify(json).substring(0, 500));
   const generationId = json?.motionVideoGenerationJob?.generationId;
   if (!generationId) throw new Error("No generationId in Leonardo video response");
 
