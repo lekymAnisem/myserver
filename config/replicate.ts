@@ -1,13 +1,13 @@
 import Replicate from "replicate";
 
-const REPLICATE_API_TOKEN = process.env.REPLICATE_API_KEY;
+const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
 
 let replicate: Replicate | null = null;
 
 function getClient(): Replicate {
   if (!replicate) {
     if (!REPLICATE_API_TOKEN) {
-      throw new Error("REPLICATE_API_KEY is not set");
+      throw new Error("REPLICATE_API_TOKEN is not set");
     }
     replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
   }
