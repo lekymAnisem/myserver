@@ -22,17 +22,56 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
   return res.json();
 }
 
-async function pollGeneration(id: string, maxWaitMs = 120000): Promise<any> {
+function get(obj: any, ...keys: string[]): any {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v !== undefined) return v;
+  }
+  return undefined;
+}
+
+function getGen(obj: any): any {
+  return obj?.generations_by_pk || obj?.generationsByPk || obj;
+}
+
+function getImages(gen: any): any[] {
+  return gen?.generated_images || gen?.generatedImages || gen?.images || [];
+}
+
+async function pollGeneration(id: string, maxWaitMs = 180000): Promise<any> {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
     const json = await request(`/generations/${id}`);
-    const gen = json?.generations_by_pk;
-    if (!gen) throw new Error("Generation not found");
-    if (gen.status === "COMPLETE") return gen;
-    if (gen.status === "FAILED") throw new Error("Generation failed");
-    await new Promise((r) => setTimeout(r, 2000));
+    console.log("[Leonardo] poll response keys:", Object.keys(json));
+    const gen = getGen(json);
+    if (!gen) {
+      console.log("[Leonardo] no gen object, raw:", JSON.stringify(json).substring(0, 500));
+      throw new Error("Generation not found");
+    }
+    const status = gen.status || gen.Status || "";
+    console.log("[Leonardo] status:", status, "id:", id);
+    if (status === "COMPLETE") return gen;
+    if (status === "FAILED") throw new Error("Generation failed");
+    await new Promise((r) => setTimeout(r, 3000));
   }
   throw new Error("Generation timed out");
+}
+
+function findUrl(images: any[], field: string): string | null {
+  const keys = field === "motionMP4URL"
+    ? ["motionMP4URL", "motion_mp4_url", "motionMp4Url", "motion_url"]
+    : ["url", "Url", "URL", "image_url"];
+  for (const img of images) {
+    for (const k of keys) {
+      const v = img?.[k];
+      if (v) return v;
+    }
+    // Fallback: any string value that looks like a URL
+    for (const v of Object.values(img)) {
+      if (typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://"))) return v;
+    }
+  }
+  return null;
 }
 
 export async function generateImageFromPrompt(prompt: string): Promise<string> {
@@ -53,8 +92,13 @@ export async function generateImageFromPrompt(prompt: string): Promise<string> {
   if (!generationId) throw new Error("No generationId in Leonardo response");
 
   const gen = await pollGeneration(generationId);
-  const url = gen?.generated_images?.[0]?.url;
-  if (!url) throw new Error("No image URL in Leonardo response");
+  const images = getImages(gen);
+  console.log("[Leonardo] image gen images:", images.length);
+  const url = findUrl(images, "url");
+  if (!url) {
+    console.log("[Leonardo] no url in images:", JSON.stringify(images).substring(0, 500));
+    throw new Error("No image URL in Leonardo response");
+  }
   return url;
 }
 
@@ -71,7 +115,12 @@ export async function generateVideoFromPrompt(prompt: string): Promise<string> {
   if (!generationId) throw new Error("No generationId in Leonardo video response");
 
   const gen = await pollGeneration(generationId);
-  const videoUrl = gen?.generated_images?.[0]?.motionMP4URL;
-  if (!videoUrl) throw new Error("No video URL in Leonardo response");
+  const images = getImages(gen);
+  console.log("[Leonardo] video gen images:", images.length);
+  const videoUrl = findUrl(images, "motionMP4URL");
+  if (!videoUrl) {
+    console.log("[Leonardo] no motionMP4URL in images:", JSON.stringify(images).substring(0, 500));
+    throw new Error("No video URL in Leonardo response");
+  }
   return videoUrl;
 }
