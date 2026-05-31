@@ -129,14 +129,23 @@ export const generateVideoFromImage = async (req: Request, res: Response) => {
 
     try {
       const videoDataUrl = await generateVideo(project.userPrompt || project.name, project.generatedImage);
-      const cloudinaryVideoUrl = await uploadImage(videoDataUrl);
+      console.log("[Video] Got Leonardo URL:", videoDataUrl.substring(0, 100));
+      let finalVideoUrl = videoDataUrl;
+      try {
+        const cloudinaryVideoUrl = await uploadImage(videoDataUrl);
+        console.log("[Video] Cloudinary upload succeeded:", cloudinaryVideoUrl.substring(0, 80));
+        finalVideoUrl = cloudinaryVideoUrl;
+      } catch (uploadErr: any) {
+        console.error("[Video] Cloudinary upload failed, using Leonardo URL directly:", uploadErr.message);
+      }
       const updated = await prisma.project.update({
         where: { id },
-        data: { generatedVideo: cloudinaryVideoUrl, isGenerating: false },
+        data: { generatedVideo: finalVideoUrl, isGenerating: false },
       });
       await deductCredits(userId);
       res.json(updated);
     } catch (genErr: any) {
+      console.error("[Video] Generation failed:", genErr.message);
       await prisma.project.update({
         where: { id },
         data: { isGenerating: false },
