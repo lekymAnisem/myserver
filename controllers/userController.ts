@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
 import { prisma } from "../config/prisma.js";
 
+const CREDITS_BY_PLAN: Record<string, number> = { free: 20, pro: 100, ultra: 300 };
+
 export const getMe = async (req: Request, res: Response) => {
   try {
     const { userId } = getAuth(req);
@@ -90,6 +92,28 @@ export const getProjectById = async (req: Request, res: Response) => {
     }
 
     res.json(project);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const syncPlan = async (req: Request, res: Response) => {
+  try {
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const plan = (clerkUser.publicMetadata?.plan as string) || "free";
+    const credits = CREDITS_BY_PLAN[plan] || 20;
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { plan, credits },
+    });
+
+    res.json(updated);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
