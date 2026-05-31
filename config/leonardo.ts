@@ -102,6 +102,49 @@ export async function generateImageFromPrompt(prompt: string): Promise<string> {
   return url;
 }
 
+async function findVideoUrl(id: string): Promise<string | null> {
+  // Try 1: Get the generation and look in generated_images
+  try {
+    const gen = await pollGeneration(id, 300000);
+    console.log("[Leonardo] full gen response:", JSON.stringify(gen).substring(0, 2000));
+    const images = getImages(gen);
+    for (const img of images) {
+      console.log("[Leonardo] image keys:", Object.keys(img));
+      // Check every field for a URL
+      for (const [k, v] of Object.entries(img)) {
+        if (typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://"))) {
+          console.log(`[Leonardo] found URL in field "${k}":`, v.substring(0, 80));
+          // Return the MP4 URL if it exists
+          if (k.toLowerCase().includes("mp4") || k.toLowerCase().includes("motion") || k.toLowerCase().includes("video")) {
+            return v;
+          }
+        }
+      }
+      // Explicit checks for common video URL fields
+      const url = img?.motionMP4URL || img?.motion_mp4_url || img?.motionUrl || img?.motion_url || img?.videoUrl || img?.video_url || null;
+      if (url) return url;
+    }
+    // Fallback: any URL in the gen object that ends with .mp4
+    const jsonStr = JSON.stringify(gen);
+    const mp4Match = jsonStr.match(/"(https?:\/\/[^"]+\.mp4)"/);
+    if (mp4Match) return mp4Match[1];
+  } catch (e: any) {
+    // Generation fetch failed, try motion-variations below
+  }
+
+  // Try 2: Motion variations endpoint (text-to-video might create a motion variation)
+  try {
+    const mv = await request(`/motion-variations/${id}`);
+    console.log("[Leonardo] motion-variations response:", JSON.stringify(mv).substring(0, 1000));
+    const items = mv?.generated_image_variation_motion || [];
+    for (const item of items) {
+      if (item?.status === "COMPLETE" && item?.url) return item.url;
+    }
+  } catch {}
+
+  return null;
+}
+
 export async function generateVideoFromPrompt(prompt: string): Promise<string> {
   const json = await request("/generations-text-to-video", {
     method: "POST",
@@ -114,13 +157,7 @@ export async function generateVideoFromPrompt(prompt: string): Promise<string> {
   const generationId = json?.motionVideoGenerationJob?.generationId;
   if (!generationId) throw new Error("No generationId in Leonardo video response");
 
-  const gen = await pollGeneration(generationId);
-  const images = getImages(gen);
-  console.log("[Leonardo] video gen images:", images.length);
-  const videoUrl = findUrl(images, "motionMP4URL");
-  if (!videoUrl) {
-    console.log("[Leonardo] no motionMP4URL in images:", JSON.stringify(images).substring(0, 500));
-    throw new Error("No video URL in Leonardo response");
-  }
+  const videoUrl = await findVideoUrl(generationId);
+  if (!videoUrl) throw new Error("No video URL in Leonardo response");
   return videoUrl;
 }
