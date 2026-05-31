@@ -40,12 +40,13 @@ export async function generateImageFromPrompt(prompt: string): Promise<string> {
     method: "POST",
     body: JSON.stringify({
       prompt,
-      modelId: "b24e16ff-06e3-43eb-8d33-4416c2d75876",
+      modelId: "de7d3faf-762f-48e0-b3b7-9d0ac3a3fcf3",
       num_images: 1,
       width: 1024,
       height: 768,
+      contrast: 3.5,
       alchemy: true,
-      sd_version: "PHOENIX",
+      styleUUID: "111dc692-d470-4eec-b791-3475abac4c46",
     }),
   });
   const generationId = json?.sdGenerationJob?.generationId;
