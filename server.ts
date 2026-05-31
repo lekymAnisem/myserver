@@ -15,6 +15,9 @@ app.use(cors())
 
 // Webhook route MUST use raw body before express.json() parses it away
 app.post('/api/webhooks/clerk', express.raw({ type: 'application/json' }), clerkWebhook);
+app.get('/api/webhooks/clerk', (_req: Request, res: Response) => {
+  res.send('Webhook endpoint is ready');
+});
 
 // Other middleware for non-webhook routes
 app.use(express.json({ limit: "10mb" }));
