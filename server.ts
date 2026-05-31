@@ -14,7 +14,7 @@ const app = express();
 app.use(cors())
 
 // Webhook route MUST use raw body before express.json() parses it away
-app.post('/api/webhooks/clerk', express.raw({ type: 'application/json' }), clerkWebhook);
+app.post('/api/webhooks/clerk', express.raw({ type: '*/*' }), clerkWebhook);
 app.get('/api/webhooks/clerk', (_req: Request, res: Response) => {
   res.send('Webhook endpoint is ready');
 });

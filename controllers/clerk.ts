@@ -1,13 +1,16 @@
 import { Request, Response } from "express";
-import { verifyWebhook} from "@clerk/express/webhooks";
+import { verifyWebhook } from "@clerk/express/webhooks";
 import { prisma } from "../config/prisma.js";
 
 export const clerkWebhook = async (req: Request, res: Response) => {
-    try { 
+    try {
+        console.log("[clerkWebhook] Received webhook, method:", req.method, "content-type:", req.headers["content-type"]);
+        console.log("[clerkWebhook] svix-signature present:", !!req.headers["svix-signature"]);
+        console.log("[clerkWebhook] CLERK_WEBHOOK_SIGNING_SECRET set:", !!process.env.CLERK_WEBHOOK_SIGNING_SECRET);
+
         const evt: any = await verifyWebhook(req);
-        //Getting Data from request
-        const { data, type} = evt;
-        //Switch case for different events
+        const { data, type } = evt;
+
         switch (type) {
             case "user.created": {
                     const createdMetadata = data.public_metadata || {};
@@ -84,9 +87,9 @@ export const clerkWebhook = async (req: Request, res: Response) => {
             default:
                 break;
         }
-        res.status(200).json({ message: "Webhook received"  + type});
-    }catch (error: any) {
-        res.status(500).json({ message: error.message  });
-
-        }
+        res.status(200).json({ message: "Webhook received: " + type});
+    } catch (error: any) {
+        console.error("[clerkWebhook] Error:", error.message);
+        res.status(500).json({ message: error.message });
     }
+}
