@@ -18,4 +18,4 @@ EXPOSE 3000
 
 ENV NODE_ENV=production
 
-CMD ["npx", "--no-install", "tsx", "server.ts"]
+CMD ["./node_modules/.bin/tsx", "server.ts"]

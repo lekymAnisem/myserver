@@ -19,6 +19,11 @@ app.get('/api/webhooks/clerk', (_req: Request, res: Response) => {
   res.send('Webhook endpoint is ready');
 });
 
+// Health check (must be before auth middleware for k8s probes)
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok' });
+});
+
 // Other middleware for non-webhook routes
 app.use(express.json({ limit: "10mb" }));
 app.use(auth);
