@@ -34,6 +34,7 @@ pipeline {
             steps {
                 sh "kubectl apply -f k8s/deployment.yaml"
                 sh "kubectl apply -f k8s/service.yaml"
+                sh "kubectl set image deployment/${DEPLOYMENT_NAME} myserver=${DOCKER_IMAGE}:${DOCKER_TAG} -n ${K8S_NAMESPACE}"
                 sh "kubectl rollout status deployment/${DEPLOYMENT_NAME} -n ${K8S_NAMESPACE}"
             }
         }
