@@ -10,7 +10,7 @@ RUN npm ci --ignore-scripts && \
 COPY tsconfig.json ./
 COPY . .
 
-RUN npm run build
+RUN npx tsc
 
 FROM node:22-alpine AS runner
 
