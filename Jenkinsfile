@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
         DOCKER_IMAGE = "dracoo23/myserver"
         DOCKER_TAG = "${env.BUILD_NUMBER}"
         K8S_NAMESPACE = "default"
