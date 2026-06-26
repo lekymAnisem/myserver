@@ -4,7 +4,8 @@ WORKDIR /app
 
 COPY package*.json prisma.config.ts ./
 COPY prisma ./prisma
-RUN npm ci
+RUN npm ci --ignore-scripts && \
+    DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy npx prisma generate
 
 COPY tsconfig.json ./
 COPY . .
